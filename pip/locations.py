@@ -1,7 +1,6 @@
 """Locations where we look for configs, install stuff, etc"""
 from __future__ import absolute_import
 
-import getpass
 import os
 import os.path
 import site
@@ -11,10 +10,8 @@ import tempfile
 from distutils import sysconfig
 from distutils.command.install import install, SCHEME_KEYS
 
-from pip.compat import get_path_uid, WINDOWS
+from pip.compat import WINDOWS
 from pip.utils import appdirs
-
-import pip.exceptions
 
 
 # Hack for flake8
@@ -101,46 +98,10 @@ def virtualenv_no_global():
         return True
 
 
-def __get_username():
-    """ Returns the effective username of the current process. """
-    if WINDOWS:
-        return getpass.getuser()
-    import pwd
-    return pwd.getpwuid(os.geteuid()).pw_name
-
-
 def _get_build_prefix():
     """ Returns a safe build_prefix """
-    path = os.path.join(
-        tempfile.gettempdir(),
-        'pip_build_%s' % __get_username().replace(' ', '_')
-    )
-    if WINDOWS:
-        """ on windows(tested on 7) temp dirs are isolated """
-        return path
-    try:
-        os.mkdir(path)
-        write_delete_marker_file(path)
-    except OSError:
-        file_uid = None
-        try:
-            # raises OSError for symlinks
-            # https://github.com/pypa/pip/pull/935#discussion_r5307003
-            file_uid = get_path_uid(path)
-        except OSError:
-            file_uid = None
-
-        if file_uid != os.geteuid():
-            msg = (
-                "The temporary folder for building (%s) is either not owned by"
-                " you, or is a symlink." % path
-            )
-            print(msg)
-            print(
-                "pip will not work until the temporary folder is either "
-                "deleted or is a real directory owned by your user account."
-            )
-            raise pip.exceptions.InstallationError(msg)
+    path = tempfile.mkdtemp(prefix='pip_build_')
+    write_delete_marker_file(path)
     return path
 
 if running_under_virtualenv():
